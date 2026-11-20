@@ -31,6 +31,7 @@ val CATEGORIES = listOf("Food", "Travel", "Books", "Bills", "Fun", "Health", "Ot
 
 object Repo {
     private lateinit var prefs: android.content.SharedPreferences
+    private lateinit var appCtx: Context
 
     val txns = mutableStateListOf<Txn>()
     val recurring = mutableStateListOf<RecurringItem>()
@@ -52,6 +53,7 @@ object Repo {
 
     fun init(ctx: Context) {
         if (this::prefs.isInitialized) return
+        appCtx = ctx.applicationContext
         prefs = ctx.applicationContext.getSharedPreferences("argentum", Context.MODE_PRIVATE)
         load()
     }
@@ -210,7 +212,10 @@ object Repo {
         txns.sortByDescending { it.time }
     }
 
-    fun save() { prefs.edit().putString("data", toJson().toString()).apply() }
+    fun save() {
+        prefs.edit().putString("data", toJson().toString()).apply()
+        runCatching { ArgentumWidget.refresh(appCtx) }
+    }
 
     private fun load() {
         prefs.getString("data", null)?.let { runCatching { fromJson(JSONObject(it)) } }

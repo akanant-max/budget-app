@@ -100,6 +100,15 @@ fun ReportScreen(onBack: () -> Unit) {
             val pct = if (opening + earned > 0) (spent / (opening + earned) * 100).toInt() else 0
             Text("You used $pct% of your money this month.", Modifier.padding(top = 4.dp))
 
+            if (key == Repo.currentKey() && Repo.budgetFor(key) != null) {
+                val st = streak()
+                Text("🔥 $st day${if (st == 1) "" else "s"} within your daily allowance",
+                    Modifier.padding(top = 10.dp), fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.height(16.dp))
+            Text("Spending calendar", fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+            Spacer(Modifier.height(8.dp))
+            SpendHeatmap(key)
             Spacer(Modifier.height(16.dp))
             Text("Where it went", fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
             Spacer(Modifier.height(8.dp))
