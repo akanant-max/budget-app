@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Argentum</string>
+    <string name="nudge_desc">Only notices which app is open, so Argentum can ask "Did you log it?" after you use a payment app. It does not read your screen.</string>
 </resources>

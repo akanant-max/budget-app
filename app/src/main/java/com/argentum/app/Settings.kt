@@ -1,6 +1,11 @@
 package com.argentum.app
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -32,6 +37,10 @@ fun SettingsScreen(onBack: () -> Unit, onLockChanged: () -> Unit) {
     var budgetDialog by remember { mutableStateOf(false) }
     var goalDialog by remember { mutableStateOf(false) }
     var importError by remember { mutableStateOf<String?>(null) }
+    var tick by remember { mutableStateOf(0) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tick++ }
+    val nudgeGranted = remember(tick) { isNudgeServiceEnabled(ctx) }
+    val listenerGranted = remember(tick) { isListenerEnabled(ctx) }
 
     fun toast(s: String) = Toast.makeText(ctx, s, Toast.LENGTH_SHORT).show()
 
@@ -107,6 +116,38 @@ fun SettingsScreen(onBack: () -> Unit, onLockChanged: () -> Unit) {
             if (Repo.reminderOn) {
                 Stepper("Day of month", Repo.reminderDay, 1..28) { Repo.reminderDay = it; Repo.save(); Reminders.schedule(ctx) }
                 Stepper("Hour (24h)", Repo.reminderHour, 0..23) { Repo.reminderHour = it; Repo.save(); Reminders.schedule(ctx) }
+            }
+
+            Section("Payment apps (GPay, PhonePe, Paytm, BHIM)")
+            SwitchRow("Nudge: \"Did you log it?\"", Repo.nudgeOn) {
+                Repo.nudgeOn = it; Repo.save()
+                if (it && !nudgeGranted) ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+            if (Repo.nudgeOn) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(Repo.nudgeMode == 0, { Repo.nudgeMode = 0; Repo.save() }, { Text("When I leave the app") })
+                    FilterChip(Repo.nudgeMode == 1, { Repo.nudgeMode = 1; Repo.save() }, { Text("When I open it") })
+                }
+                PermNote(nudgeGranted, "Turn on \"Argentum payment nudge\" in Accessibility settings.") {
+                    ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
+            }
+            SwitchRow("Auto-fill the amount from payment notifications", Repo.autofillOn) {
+                Repo.autofillOn = it; Repo.save()
+                if (it && !listenerGranted) ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            }
+            if (Repo.autofillOn) {
+                PermNote(listenerGranted, "Allow notification access for Argentum.") {
+                    ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
+            }
+            if ((Repo.nudgeOn && !nudgeGranted) || (Repo.autofillOn && !listenerGranted)) {
+                Text("If Android greys the switch out, open Argentum's app info, tap ⋮ and choose \"Allow restricted settings\", then try again.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(top = 4.dp))
+                TextButton(onClick = {
+                    ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
+                }) { Text("Open app info") }
             }
 
             Section("Backup")
@@ -213,4 +254,15 @@ private fun GoalDialog(onDone: () -> Unit) {
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDone) { Text("Cancel") } })
+}
+
+@Composable
+private fun PermNote(granted: Boolean, todo: String, onFix: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (granted) Text("✓ Permission granted", color = IncomeGreen, fontSize = 13.sp)
+        else {
+            Text(todo, Modifier.weight(1f), fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+            TextButton(onClick = onFix) { Text("Fix") }
+        }
+    }
 }

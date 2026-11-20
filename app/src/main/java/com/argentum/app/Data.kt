@@ -50,6 +50,9 @@ object Repo {
     var goalTarget by mutableStateOf(0.0)
     var goalSaved by mutableStateOf(0.0)
     var lastRecurringKey by mutableStateOf("")
+    var nudgeOn by mutableStateOf(false)
+    var nudgeMode by mutableStateOf(0) // 0 when I leave, 1 when I open
+    var autofillOn by mutableStateOf(false)
 
     fun init(ctx: Context) {
         if (this::prefs.isInitialized) return
@@ -189,6 +192,7 @@ object Repo {
         put("remHour", reminderHour); put("lock", lockOn)
         put("goalName", goalName); put("goalTarget", goalTarget); put("goalSaved", goalSaved)
         put("lastRec", lastRecurringKey)
+        put("nudgeOn", nudgeOn); put("nudgeMode", nudgeMode); put("autofillOn", autofillOn)
     }
 
     fun fromJson(o: JSONObject) {
@@ -209,6 +213,8 @@ object Repo {
         reminderHour = o.optInt("remHour", 9); lockOn = o.optBoolean("lock", false)
         goalName = o.optString("goalName"); goalTarget = o.optDouble("goalTarget", 0.0)
         goalSaved = o.optDouble("goalSaved", 0.0); lastRecurringKey = o.optString("lastRec")
+        nudgeOn = o.optBoolean("nudgeOn", false); nudgeMode = o.optInt("nudgeMode", 0)
+        autofillOn = o.optBoolean("autofillOn", false)
         txns.sortByDescending { it.time }
     }
 

@@ -23,6 +23,8 @@ import androidx.fragment.app.FragmentActivity
 
 class MainActivity : FragmentActivity() {
     private var unlocked by mutableStateOf(false)
+    private var screen by mutableStateOf("home")
+    private var prefill by mutableStateOf<Prefill?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,6 +32,7 @@ class MainActivity : FragmentActivity() {
         Repo.init(this)
         Repo.applyRecurring()
         Reminders.schedule(this)
+        if (savedInstanceState == null) handleIntent(intent)
 
         setContent {
             ArgentumTheme {
@@ -37,7 +40,6 @@ class MainActivity : FragmentActivity() {
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT >= 33) notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                var screen by remember { mutableStateOf("home") }
                 if (Repo.lockOn && !unlocked) {
                     LaunchedEffect(Unit) { prompt() }
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
@@ -48,10 +50,25 @@ class MainActivity : FragmentActivity() {
                     "report" -> { androidx.activity.compose.BackHandler { screen = "home" }; ReportScreen { screen = "home" } }
                     "settings" -> { androidx.activity.compose.BackHandler { screen = "home" }
                         SettingsScreen({ screen = "home" }, { unlocked = true }) }
-                    else -> HomeScreen({ screen = "ledger" }, { screen = "report" }, { screen = "settings" })
+                    else -> HomeScreen({ screen = "ledger" }, { screen = "report" }, { screen = "settings" },
+                        prefill, { prefill = null })
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(i: android.content.Intent?) {
+        if (i?.getBooleanExtra(EXTRA_SPEND, false) != true) return
+        val amt = if (i.hasExtra(EXTRA_AMOUNT)) i.getDoubleExtra(EXTRA_AMOUNT, 0.0) else null
+        prefill = Prefill(amt, i.getStringExtra(EXTRA_NOTE).orEmpty())
+        screen = "home"
+        i.removeExtra(EXTRA_SPEND)
     }
 
     override fun onStop() {

@@ -27,7 +27,8 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onLedger: () -> Unit, onReport: () -> Unit, onSettings: () -> Unit) {
+fun HomeScreen(onLedger: () -> Unit, onReport: () -> Unit, onSettings: () -> Unit,
+               prefill: Prefill? = null, onPrefillUsed: () -> Unit = {}) {
     val key = Repo.currentKey()
     val hasBudget = Repo.budgetFor(key) != null
     val f = if (hasBudget) Repo.fraction(key) else 0.6f
@@ -37,6 +38,10 @@ fun HomeScreen(onLedger: () -> Unit, onReport: () -> Unit, onSettings: () -> Uni
     var budgetDialog by remember { mutableStateOf(!hasBudget) }
     var lastUndo by remember { mutableStateOf<Txn?>(null) }
     val snack = remember { SnackbarHostState() }
+
+    LaunchedEffect(prefill, hasBudget) {
+        if (prefill != null && hasBudget) sheet = false
+    }
 
     LaunchedEffect(lastUndo) {
         val u = lastUndo ?: return@LaunchedEffect
@@ -86,7 +91,12 @@ fun HomeScreen(onLedger: () -> Unit, onReport: () -> Unit, onSettings: () -> Uni
     }
 
     sheet?.let { isIncome ->
-        TxnSheet(isIncome, onDismiss = { sheet = null }) { t -> Repo.add(t); lastUndo = t; sheet = null }
+        TxnSheet(
+            isIncome,
+            initialAmount = if (!isIncome) prefill?.amount else null,
+            initialNote = if (!isIncome) prefill?.note.orEmpty() else "",
+            onDismiss = { sheet = null; onPrefillUsed() }
+        ) { t -> Repo.add(t); lastUndo = t; sheet = null; onPrefillUsed() }
     }
     if (budgetDialog) BudgetDialog(key, onDone = { budgetDialog = false })
 }
@@ -103,9 +113,12 @@ private fun BigRoundButton(icon: androidx.compose.ui.graphics.vector.ImageVector
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TxnSheet(isIncome: Boolean, existing: Txn? = null, onDismiss: () -> Unit,
-             onDelete: (() -> Unit)? = null, onSave: (Txn) -> Unit) {
-    var amountText by remember { mutableStateOf(existing?.amount?.let { "%.2f".format(it).removeSuffix(".00") } ?: "") }
-    var note by remember { mutableStateOf(existing?.note ?: "") }
+             onDelete: (() -> Unit)? = null, initialAmount: Double? = null, initialNote: String = "",
+             onSave: (Txn) -> Unit) {
+    var amountText by remember {
+        mutableStateOf((existing?.amount ?: initialAmount)?.let { "%.2f".format(it).removeSuffix(".00") } ?: "")
+    }
+    var note by remember { mutableStateOf(existing?.note ?: initialNote) }
     var cat by remember { mutableStateOf(existing?.category ?: if (isIncome) "Income" else "Food") }
     val amt = amountText.toDoubleOrNull() ?: 0.0
     val key = Repo.currentKey()
@@ -181,3 +194,5 @@ fun BudgetDialog(key: String, onDone: () -> Unit) {
         dismissButton = { if (Repo.budgetFor(key) != null) TextButton(onClick = onDone) { Text("Cancel") } }
     )
 }
+
+data class Prefill(val amount: Double?, val note: String)
